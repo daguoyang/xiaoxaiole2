@@ -71,7 +71,14 @@ class Helper {
 
     /** 预加载资源 */
     preloadAsset(url: string, type: typeof Asset) {
-        this.resBundle.preload(url, type);
+        // 检查是否是UI预制体，如果是则使用prefab-resources bundle
+        if (type === Prefab && url.startsWith('ui/') && this.prefabBundle) {
+            const convertedUrl = `prefab/${url}`;
+            console.log(`[ResLoadHelper] 使用prefab-resources bundle预加载单个UI预制体: ${convertedUrl}`);
+            this.prefabBundle.preload(convertedUrl, type);
+        } else {
+            this.resBundle.preload(url, type);
+        }
     }
 
     /** 预加载文件夹 */
@@ -88,16 +95,44 @@ class Helper {
     }
     /** 预加载文件 */
     preloadPath(url: string[], onProgress: (finish: number, total: number, item: AssetManager.RequestItem) => void, call: (items: AssetManager.RequestItem[]) => void, faild: Function) {
-        this.resBundle.preload(url, (finish: number, total: number, item: AssetManager.RequestItem) => {
-            onProgress && onProgress(finish, total, item);
-        }, (err: Error, items: AssetManager.RequestItem[]) => {
-            if (err) {
-                faild && faild(err);
-                error(`preload 加载asset失败, url:${url}, err: ${err}`);
-                return null;
-            }
-            call && call(items);
-        });
+        // 检查是否是UI预制体，如果是则使用prefab-resources bundle
+        const isUIPrefab = url.some(path => path.includes('./prefab/ui/'));
+        
+        if (isUIPrefab && this.prefabBundle) {
+            // 转换URL路径以匹配prefab-resources bundle的结构
+            const convertedUrls = url.map(path => {
+                if (path.startsWith('./prefab/ui/')) {
+                    return path.replace('./prefab/ui/', 'prefab/ui/');
+                }
+                return path;
+            });
+            
+            console.log(`[ResLoadHelper] 使用prefab-resources bundle预加载UI预制体: ${convertedUrls.join(', ')}`);
+            
+            this.prefabBundle.preload(convertedUrls, (finish: number, total: number, item: AssetManager.RequestItem) => {
+                onProgress && onProgress(finish, total, item);
+            }, (err: Error, items: AssetManager.RequestItem[]) => {
+                if (err) {
+                    faild && faild(err);
+                    error(`preload 加载asset失败, url:${convertedUrls.join(',')}, err: ${err}`);
+                    return null;
+                }
+                console.log(`[ResLoadHelper] UI预制体预加载成功: ${convertedUrls.join(', ')}`);
+                call && call(items);
+            });
+        } else {
+            // 使用默认的resources bundle
+            this.resBundle.preload(url, (finish: number, total: number, item: AssetManager.RequestItem) => {
+                onProgress && onProgress(finish, total, item);
+            }, (err: Error, items: AssetManager.RequestItem[]) => {
+                if (err) {
+                    faild && faild(err);
+                    error(`preload 加载asset失败, url:${url}, err: ${err}`);
+                    return null;
+                }
+                call && call(items);
+            });
+        }
     }
 
     /** 加载3D模型 */
