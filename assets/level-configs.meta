@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "b5AQ55vmtJBKxpDZnqgOXH",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isBundle": true,
+    "bundleName": "level-configs",
+    "priority": 7,
+    "bundleConfigID": "auto_b5AQ55vmtJBKxpDZnqgOXH"
+  }
+}

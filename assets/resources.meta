@@ -6,9 +6,8 @@
   "files": [],
   "subMetas": {},
   "userData": {
-    "isBundle": true,
-    "bundleName": "resources",
-    "priority": 8,
-    "bundleConfigID": "auto_b5AQ55vmtJBKxpDZnqgOXH"
+    "isBundle": false,
+    "bundleName": "",
+    "priority": 1
   }
 }

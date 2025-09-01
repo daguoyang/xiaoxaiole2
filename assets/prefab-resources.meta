@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "d9G4L3vmtJBKxpDZnqgOXH",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isBundle": true,
+    "bundleName": "prefab-resources",
+    "priority": 6,
+    "bundleConfigID": "auto_d9G4L3vmtJBKxpDZnqgOXH"
+  }
+}

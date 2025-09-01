@@ -1,0 +1,14 @@
+{
+  "ver": "1.2.0",
+  "importer": "directory",
+  "imported": true,
+  "uuid": "c8F3K2vmtJBKxpDZnqgOXH",
+  "files": [],
+  "subMetas": {},
+  "userData": {
+    "isBundle": true,
+    "bundleName": "audio-resources",
+    "priority": 5,
+    "bundleConfigID": "auto_c8F3K2vmtJBKxpDZnqgOXH"
+  }
+}
