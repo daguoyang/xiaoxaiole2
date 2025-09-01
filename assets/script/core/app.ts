@@ -48,6 +48,9 @@ class GameApp extends SingletonClass<GameApp> {
         this.heart.init();
         WxMgr.init();
         
+        // 初始化资源分包
+        await ResLoadHelper.initBundles();
+        
         // 初始化广告管理系统
         this.initAdManager();
     }

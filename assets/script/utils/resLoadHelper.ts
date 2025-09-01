@@ -1,4 +1,4 @@
-import { Asset, assetManager, AssetManager, AudioClip, error, ImageAsset, Prefab, resources, SpriteFrame, Texture2D } from "cc";
+import { Asset, assetManager, AssetManager, AudioClip, error, ImageAsset, JsonAsset, Prefab, resources, SpriteFrame, Texture2D } from "cc";
 import { PrintError, PrintLog } from "./logHelper";
 
 /**
@@ -6,8 +6,45 @@ import { PrintError, PrintLog } from "./logHelper";
  */
 class Helper {
     private resBundle: AssetManager.Bundle = resources;
+    private prefabBundle: AssetManager.Bundle | null = null;
+    private audioBundle: AssetManager.Bundle | null = null;
+    private configBundle: AssetManager.Bundle | null = null;
+    private uiBundle: AssetManager.Bundle | null = null;
+
     setBundle(bundle?: AssetManager.Bundle) {
         this.resBundle = bundle || resources;
+    }
+
+    /** 初始化分包bundle */
+    async initBundles() {
+        try {
+            // 加载预制体分包
+            this.prefabBundle = await this.loadBundle('prefab-resources');
+            // 加载音频分包  
+            this.audioBundle = await this.loadBundle('audio-resources');
+            // 加载配置分包
+            this.configBundle = await this.loadBundle('level-configs');
+            // 加载UI分包
+            this.uiBundle = await this.loadBundle('ui-resources');
+            PrintLog('All bundles loaded successfully');
+        } catch (error) {
+            PrintError(`Failed to load bundles: ${error}`);
+        }
+    }
+
+    /** 加载bundle */
+    private loadBundle(bundleName: string): Promise<AssetManager.Bundle> {
+        return new Promise((resolve, reject) => {
+            assetManager.loadBundle(bundleName, (err, bundle) => {
+                if (err) {
+                    PrintError(`Failed to load bundle ${bundleName}: ${err}`);
+                    reject(err);
+                } else {
+                    PrintLog(`Bundle ${bundleName} loaded successfully`);
+                    resolve(bundle);
+                }
+            });
+        });
     }
 
     /** 预加载资源 */
@@ -53,20 +90,34 @@ class Helper {
     // 加载通用资源
     async loadCommonAssetSync(url: string, type: typeof Asset) {
         return new Promise((resolve: (ret: any) => void) => {
-            url = type == Prefab ? `prefab/${url}` : url;
-            if (type == SpriteFrame) {
-                url += "/spriteFrame"
+            let bundle = resources;
+            let finalUrl = url;
+
+            // 根据资源类型和路径确定使用哪个bundle
+            if (type == Prefab) {
+                if (url.startsWith('ui/') && this.prefabBundle) {
+                    bundle = this.prefabBundle;
+                    finalUrl = `prefab/${url}`;
+                } else {
+                    finalUrl = `prefab/${url}`;
+                }
+            } else if (url.startsWith('config/') && this.configBundle) {
+                bundle = this.configBundle;
+            } else if (url.startsWith('sound/') && this.audioBundle) {
+                bundle = this.audioBundle;
+            } else if (type == SpriteFrame) {
+                finalUrl += "/spriteFrame";
             }
-            resources.load(url, type, (err, assets) => {
+
+            bundle.load(finalUrl, type, (err, assets) => {
                 if (err) {
-                    PrintError(`loadCommonAssetSync 加载asset失败, url:${url}, err: ${err}`);
+                    PrintError(`loadCommonAssetSync 加载asset失败, url:${finalUrl}, bundle:${bundle === resources ? 'resources' : 'custom'}, err: ${err}`);
                     resolve(null);
                 } else {
-                    PrintLog(url)
+                    PrintLog(`Successfully loaded: ${finalUrl} from bundle: ${bundle === resources ? 'resources' : 'custom'}`);
                     resolve(assets);
                 }
             });
-
         });
     }
 
@@ -125,11 +176,39 @@ class Helper {
 
     /** 同步加载prefab文件 */
     async loadPrefabSync(url: string): Promise<Prefab> {
+        // 使用预制体分包来加载UI预制体
+        if (url.startsWith('ui/') && this.prefabBundle) {
+            return new Promise((resolve: (ret: any) => void) => {
+                this.prefabBundle!.load(`prefab/${url}`, Prefab, (err, assets) => {
+                    if (err) {
+                        PrintError(`loadPrefabSync 加载prefab失败, url:prefab/${url}, err: ${err}`);
+                        resolve(null);
+                    } else {
+                        PrintLog(`Successfully loaded prefab: ${url} from prefab-resources bundle`);
+                        resolve(assets);
+                    }
+                });
+            });
+        }
         return this.loadAssetSync(`prefab/${url}`, Prefab);
     }
 
     /** 加载声音文件 */
     async loadAudioClipSync(soundFile: string): Promise<AudioClip> {
+        // 优先从音频分包加载
+        if (this.audioBundle) {
+            return new Promise((resolve: (ret: any) => void) => {
+                this.audioBundle!.load(`sound/${soundFile}`, AudioClip, (err, assets) => {
+                    if (err) {
+                        PrintError(`loadAudioClipSync 加载audio失败, url:sound/${soundFile}, err: ${err}`);
+                        resolve(null);
+                    } else {
+                        PrintLog(`Successfully loaded audio: ${soundFile} from audio-resources bundle`);
+                        resolve(assets);
+                    }
+                });
+            });
+        }
         return this.loadAssetSync(`sound/${soundFile}`, AudioClip);
     }
 
