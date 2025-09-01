@@ -15,11 +15,19 @@ const { ccclass, property } = _decorator;
 export class mainCmpt extends BaseNodeCmpt {
     @property(Node)
     canvase: Node = null;
-    onLoad() {
+    async onLoad() {
         super.onLoad();
-        App.init(this.canvase);
+        console.log('[MainCmpt] 开始初始化应用...');
+        
+        // 等待App完全初始化完成（包括bundle加载）
+        await App.init(this.canvase);
+        
+        console.log('[MainCmpt] 应用初始化完成，开始初始化视图...');
+        // 现在可以安全地初始化视图了
         this.initView();
+        
         this.connectServer();
+        console.log('[MainCmpt] 主组件初始化完成');
     }
 
     addEvent() {

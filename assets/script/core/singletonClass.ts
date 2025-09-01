@@ -15,8 +15,8 @@ export class SingletonClass<T>{
         return this.prototype._instance as T;
     }
 
-    init(...args: any[]) {
-        this.onInit(...args);
+    async init(...args: any[]) {
+        await this.onInit(...args);
         this._isValid = true;
     }
 
