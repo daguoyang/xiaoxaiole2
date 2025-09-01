@@ -17,16 +17,25 @@ class Helper {
 
     /** 初始化分包bundle */
     async initBundles() {
+        PrintLog('开始初始化分包bundles...');
         try {
             // 加载预制体分包
             this.prefabBundle = await this.loadBundle('prefab-resources');
+            PrintLog(`prefab-resources bundle loaded: ${this.prefabBundle ? 'success' : 'failed'}`);
+            
             // 加载音频分包  
             this.audioBundle = await this.loadBundle('audio-resources');
+            PrintLog(`audio-resources bundle loaded: ${this.audioBundle ? 'success' : 'failed'}`);
+            
             // 加载配置分包
             this.configBundle = await this.loadBundle('level-configs');
+            PrintLog(`level-configs bundle loaded: ${this.configBundle ? 'success' : 'failed'}`);
+            
             // 加载UI分包
             this.uiBundle = await this.loadBundle('ui-resources');
-            PrintLog('All bundles loaded successfully');
+            PrintLog(`ui-resources bundle loaded: ${this.uiBundle ? 'success' : 'failed'}`);
+            
+            PrintLog('所有分包bundles加载完成!');
         } catch (error) {
             PrintError(`Failed to load bundles: ${error}`);
         }
@@ -35,12 +44,25 @@ class Helper {
     /** 加载bundle */
     private loadBundle(bundleName: string): Promise<AssetManager.Bundle> {
         return new Promise((resolve, reject) => {
+            // 尝试多种方式加载bundle
+            PrintLog(`正在尝试加载bundle: ${bundleName}`);
+            
             assetManager.loadBundle(bundleName, (err, bundle) => {
                 if (err) {
                     PrintError(`Failed to load bundle ${bundleName}: ${err}`);
+                    PrintError(`Bundle error details: ${JSON.stringify(err)}`);
+                    
+                    // 列出所有可用的bundles进行调试
+                    PrintLog('当前可用的bundles:');
+                    const allBundles = assetManager.bundles;
+                    allBundles.forEach((bundle, name) => {
+                        PrintLog(`- Bundle: ${name}`);
+                    });
+                    
                     reject(err);
                 } else {
                     PrintLog(`Bundle ${bundleName} loaded successfully`);
+                    PrintLog(`Bundle内容数量: ${Object.keys(bundle._config.paths).length} 个资源`);
                     resolve(bundle);
                 }
             });
@@ -92,29 +114,50 @@ class Helper {
         return new Promise((resolve: (ret: any) => void) => {
             let bundle = resources;
             let finalUrl = url;
+            let bundleName = 'resources';
 
             // 根据资源类型和路径确定使用哪个bundle
             if (type == Prefab) {
-                if (url.startsWith('ui/') && this.prefabBundle) {
-                    bundle = this.prefabBundle;
-                    finalUrl = `prefab/${url}`;
+                if (url.startsWith('ui/')) {
+                    if (this.prefabBundle) {
+                        bundle = this.prefabBundle;
+                        bundleName = 'prefab-resources';
+                        finalUrl = `prefab/${url}`;
+                        PrintLog(`使用prefab-resources bundle加载: ${finalUrl}`);
+                    } else {
+                        PrintError(`prefab-resources bundle 未加载，回退到resources bundle`);
+                        finalUrl = `prefab/${url}`;
+                    }
                 } else {
                     finalUrl = `prefab/${url}`;
                 }
-            } else if (url.startsWith('config/') && this.configBundle) {
-                bundle = this.configBundle;
-            } else if (url.startsWith('sound/') && this.audioBundle) {
-                bundle = this.audioBundle;
+            } else if (url.startsWith('config/')) {
+                if (this.configBundle) {
+                    bundle = this.configBundle;
+                    bundleName = 'level-configs';
+                    PrintLog(`使用level-configs bundle加载: ${finalUrl}`);
+                } else {
+                    PrintError(`level-configs bundle 未加载，回退到resources bundle`);
+                }
+            } else if (url.startsWith('sound/')) {
+                if (this.audioBundle) {
+                    bundle = this.audioBundle;
+                    bundleName = 'audio-resources';
+                    PrintLog(`使用audio-resources bundle加载: ${finalUrl}`);
+                } else {
+                    PrintError(`audio-resources bundle 未加载，回退到resources bundle`);
+                }
             } else if (type == SpriteFrame) {
                 finalUrl += "/spriteFrame";
             }
 
+            PrintLog(`正在从 ${bundleName} bundle 加载资源: ${finalUrl}`);
             bundle.load(finalUrl, type, (err, assets) => {
                 if (err) {
-                    PrintError(`loadCommonAssetSync 加载asset失败, url:${finalUrl}, bundle:${bundle === resources ? 'resources' : 'custom'}, err: ${err}`);
+                    PrintError(`loadCommonAssetSync 加载asset失败, url:${finalUrl}, bundle:${bundleName}, err: ${err}`);
                     resolve(null);
                 } else {
-                    PrintLog(`Successfully loaded: ${finalUrl} from bundle: ${bundle === resources ? 'resources' : 'custom'}`);
+                    PrintLog(`Successfully loaded: ${finalUrl} from bundle: ${bundleName}`);
                     resolve(assets);
                 }
             });
@@ -177,19 +220,27 @@ class Helper {
     /** 同步加载prefab文件 */
     async loadPrefabSync(url: string): Promise<Prefab> {
         // 使用预制体分包来加载UI预制体
-        if (url.startsWith('ui/') && this.prefabBundle) {
-            return new Promise((resolve: (ret: any) => void) => {
-                this.prefabBundle!.load(`prefab/${url}`, Prefab, (err, assets) => {
-                    if (err) {
-                        PrintError(`loadPrefabSync 加载prefab失败, url:prefab/${url}, err: ${err}`);
-                        resolve(null);
-                    } else {
-                        PrintLog(`Successfully loaded prefab: ${url} from prefab-resources bundle`);
-                        resolve(assets);
-                    }
+        if (url.startsWith('ui/')) {
+            if (this.prefabBundle) {
+                PrintLog(`loadPrefabSync: 使用prefab-resources bundle加载UI预制体: ${url}`);
+                return new Promise((resolve: (ret: any) => void) => {
+                    this.prefabBundle!.load(`prefab/${url}`, Prefab, (err, assets) => {
+                        if (err) {
+                            PrintError(`loadPrefabSync 加载prefab失败, url:prefab/${url}, bundle: prefab-resources, err: ${err}`);
+                            resolve(null);
+                        } else {
+                            PrintLog(`Successfully loaded prefab: ${url} from prefab-resources bundle`);
+                            resolve(assets);
+                        }
+                    });
                 });
-            });
+            } else {
+                PrintError(`loadPrefabSync: prefab-resources bundle未加载，无法加载UI预制体: ${url}`);
+                return null;
+            }
         }
+        
+        PrintLog(`loadPrefabSync: 使用默认bundle加载预制体: ${url}`);
         return this.loadAssetSync(`prefab/${url}`, Prefab);
     }
 
@@ -215,6 +266,34 @@ class Helper {
     /** 加载通用声音文件 */
     async loadCommonAudioClip(soundFile: string): Promise<AudioClip> {
         return this.loadCommonAssetSync(`sound/${soundFile}`, AudioClip);
+    }
+
+    /** 检查bundle状态 */
+    checkBundleStatus() {
+        PrintLog(`Bundle状态检查:`);
+        PrintLog(`- prefab-resources: ${this.prefabBundle ? '已加载' : '未加载'}`);
+        PrintLog(`- audio-resources: ${this.audioBundle ? '已加载' : '未加载'}`);
+        PrintLog(`- level-configs: ${this.configBundle ? '已加载' : '未加载'}`);
+        PrintLog(`- ui-resources: ${this.uiBundle ? '已加载' : '未加载'}`);
+    }
+
+    /** 等待bundles加载完成 */
+    async waitForBundles(): Promise<void> {
+        let retries = 0;
+        const maxRetries = 50; // 5秒超时
+        
+        while (retries < maxRetries) {
+            if (this.prefabBundle && this.audioBundle && this.configBundle && this.uiBundle) {
+                PrintLog('所有bundles已就绪');
+                return;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            retries++;
+        }
+        
+        PrintError('等待bundles加载超时');
+        this.checkBundleStatus();
     }
 
     /** 释放资源 */

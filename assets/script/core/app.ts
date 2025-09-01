@@ -41,18 +41,26 @@ class GameApp extends SingletonClass<GameApp> {
         // this.platform.init();
         App.user.init();
         this.audio.init(canvas);
+        
+        // ⚡ 重要: 在视图管理器初始化之前先初始化资源分包
+        console.log('[App] 正在初始化资源分包...');
+        await ResLoadHelper.initBundles();
+        console.log('[App] 资源分包初始化完成，检查状态:');
+        ResLoadHelper.checkBundleStatus();
+        
+        // 现在可以安全地初始化视图管理器
         this.view.init(canvas);
+        
         this.timer.init();
         this.gameLogic.init();
         StorageHelper.initData();
         this.heart.init();
         WxMgr.init();
         
-        // 初始化资源分包
-        await ResLoadHelper.initBundles();
-        
         // 初始化广告管理系统
         this.initAdManager();
+        
+        console.log('[App] 应用初始化完成');
     }
 
     /**
