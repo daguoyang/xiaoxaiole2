@@ -153,7 +153,8 @@ class Helper {
 
             // 根据资源类型和路径确定使用哪个bundle
             if (type == Prefab) {
-                if (url.startsWith('ui/')) {
+                // UI预制体和游戏预制体都需要从prefab-resources bundle加载
+                if (url.startsWith('ui/') || url.startsWith('pieces/')) {
                     if (this.prefabBundle) {
                         bundle = this.prefabBundle;
                         bundleName = 'prefab-resources';
