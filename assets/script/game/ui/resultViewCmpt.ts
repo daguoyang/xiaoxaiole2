@@ -204,6 +204,12 @@ export class ResultViewCmpt extends BaseViewCmpt {
         console.log('点击继续游戏按钮');
         App.audio.play('button_click');
         
+        // 重要：胜利时进入下一关
+        if (this.isWin) {
+            console.log('关卡胜利，保存进度并进入下一关');
+            LevelConfig.nextLevel();
+        }
+        
         // 播放体力飞行动画（但不实际增加体力，因为已在胜利时增加）
         let btnPos = this.viewList.get('animNode/win/nextBtn').worldPosition;
         this.playHeartFlyAnimation(btnPos, true, false);
