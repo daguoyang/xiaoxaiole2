@@ -192,7 +192,10 @@ class Helper {
                 } else {
                     PrintError(`ui-resources bundle 未加载，回退到resources bundle`);
                 }
-            } else if (type == SpriteFrame) {
+            }
+
+            // SpriteFrame路径处理需要在分包路由之后
+            if (type == SpriteFrame) {
                 finalUrl += "/spriteFrame";
             }
 
