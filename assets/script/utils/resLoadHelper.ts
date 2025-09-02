@@ -183,6 +183,15 @@ class Helper {
                 } else {
                     PrintError(`audio-resources bundle 未加载，回退到resources bundle`);
                 }
+            } else if (url.startsWith('head/') || url.startsWith('images/')) {
+                // 头像和广告图片已移动到ui-resources分包
+                if (this.uiBundle) {
+                    bundle = this.uiBundle;
+                    bundleName = 'ui-resources';
+                    PrintLog(`使用ui-resources bundle加载: ${finalUrl}`);
+                } else {
+                    PrintError(`ui-resources bundle 未加载，回退到resources bundle`);
+                }
             } else if (type == SpriteFrame) {
                 finalUrl += "/spriteFrame";
             }
