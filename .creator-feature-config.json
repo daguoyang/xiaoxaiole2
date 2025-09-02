@@ -1,0 +1,22 @@
+{
+  "dragon-bones": false,
+  "spine": false,
+  "physics-2d-box2d": false,
+  "physics-2d-builtin": false, 
+  "physics-ammo": false,
+  "physics-cannon": false,
+  "physics-framework": false,
+  "3d": false,
+  "geometry-renderer": false,
+  "primitive": false,
+  "profiler": false,
+  "particle": false,
+  "tiled-map": false,
+  "terrain": false,
+  "video": false,
+  "webview": false,
+  "light-probe": false,
+  "mesh-renderer": false,
+  "skeletal-animation": false,
+  "xr": false
+}

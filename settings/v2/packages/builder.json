@@ -343,5 +343,20 @@
     "logo": {
       "type": "default"
     }
+  },
+  "engineModules": {
+    "excludeModules": [
+      "spine",
+      "dragon-bones",
+      "physics-2d-box2d", 
+      "physics-ammo",
+      "physics-framework",
+      "3d",
+      "particle",
+      "terrain", 
+      "tiled-map",
+      "video",
+      "webview"
+    ]
   }
 }
