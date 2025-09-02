@@ -1,3 +1,86 @@
 {
-  "__version__": "1.0.9"
+  "__version__": "1.0.9",
+  "modules": {
+    "base": {
+      "enable": true
+    },
+    "2d": {
+      "enable": true
+    },
+    "ui": {
+      "enable": true
+    },
+    "animation": {
+      "enable": true
+    },
+    "audio": {
+      "enable": true
+    },
+    "spine": {
+      "enable": false
+    },
+    "dragon-bones": {
+      "enable": false
+    },
+    "physics-2d": {
+      "enable": false
+    },
+    "physics-ammo": {
+      "enable": false
+    },
+    "physics-builtin": {
+      "enable": false
+    },
+    "physics-cannon": {
+      "enable": false
+    },
+    "physics-framework": {
+      "enable": false
+    },
+    "3d": {
+      "enable": false
+    },
+    "geometry-renderer": {
+      "enable": false
+    },
+    "primitive": {
+      "enable": false
+    },
+    "profiler": {
+      "enable": false
+    },
+    "particle": {
+      "enable": false
+    },
+    "particle-2d": {
+      "enable": true
+    },
+    "tween": {
+      "enable": true
+    },
+    "tiled-map": {
+      "enable": false
+    },
+    "terrain": {
+      "enable": false
+    },
+    "video": {
+      "enable": false
+    },
+    "webview": {
+      "enable": false
+    },
+    "light-probe": {
+      "enable": false
+    },
+    "mesh-renderer": {
+      "enable": false
+    },
+    "skeletal-animation": {
+      "enable": false
+    },
+    "xr": {
+      "enable": false
+    }
+  }
 }
