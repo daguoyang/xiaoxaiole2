@@ -35,22 +35,11 @@ class GameApp extends SingletonClass<GameApp> {
     get heart() { return HeartManager.getInstance<HeartManager>(HeartManager); }
 
     protected async onInit(canvas: Node) {
-        // this.net.init();
-        // this.i18n.init();
-        // this.subGame.init();
-        // this.platform.init();
+        console.log('[App] 🚀 开始快速启动初始化...');
+        
+        // 立即初始化基础系统
         App.user.init();
         this.audio.init(canvas);
-        
-        // ⚡ 重要: 在视图管理器初始化之前先初始化资源分包
-        console.log('[App] 正在初始化资源分包...');
-        await ResLoadHelper.initBundles();
-        console.log('[App] 资源分包初始化完成，检查状态:');
-        ResLoadHelper.checkBundleStatus();
-        
-        // 现在可以安全地初始化视图管理器
-        this.view.init(canvas);
-        
         this.timer.init();
         this.gameLogic.init();
         StorageHelper.initData();
@@ -60,7 +49,22 @@ class GameApp extends SingletonClass<GameApp> {
         // 初始化广告管理系统
         this.initAdManager();
         
-        console.log('[App] 应用初始化完成');
+        // ⚡ 快速初始化：只加载核心分包，让用户尽快看到界面
+        console.log('[App] ⚡ 快速加载核心资源...');
+        await ResLoadHelper.initCoreBundle();
+        
+        // 现在可以安全地初始化视图管理器
+        this.view.init(canvas);
+        
+        console.log('[App] ✅ 快速启动完成，UI可以显示了');
+        
+        // 立即在后台加载剩余的关键分包（level-configs），这是游戏核心功能必需的
+        console.log('[App] 🔄 开始后台加载关键分包...');
+        ResLoadHelper.loadRemainingBundles().then(() => {
+            console.log('[App] ✅ 关键分包加载完成');
+        }).catch(err => {
+            console.error('[App] ❌ 关键分包加载失败:', err);
+        });
     }
 
     /**

@@ -3,6 +3,11 @@
   "textureCompressConfig": {
     "genMipmaps": false
   },
+  "wechatgame": {
+    "remoteBundleUrl": "https://www.zheliyo.com/minigame/remote-assets/",
+    "md5Cache": true,
+    "remoteServerAddress": "https://www.zheliyo.com"
+  },
   "bundleConfig": {
     "custom": {
       "auto_25EB4RoBVOJrCBh0chzMwt": {

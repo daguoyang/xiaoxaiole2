@@ -1,5 +1,6 @@
-import { Asset, assetManager, AssetManager, AudioClip, error, ImageAsset, JsonAsset, Prefab, resources, SpriteFrame, Texture2D } from "cc";
+import { Asset, assetManager, AssetManager, AudioClip, error, ImageAsset, JsonAsset, Prefab, resources, SpriteFrame, Texture2D, sys } from "cc";
 import { PrintError, PrintLog } from "./logHelper";
+import { remoteAssetsManager } from "./remoteAssetsManager";
 
 /**
  * 加载资源
@@ -15,37 +16,147 @@ class Helper {
         this.resBundle = bundle || resources;
     }
 
-    /** 初始化分包bundle */
-    async initBundles() {
-        PrintLog('开始初始化分包bundles...');
+    /** 初始化分包bundle - 并行加载提升性能 */
+    async initBundles(progressCallback?: (loaded: number, total: number) => void) {
+        PrintLog('🚀 开始并行初始化分包bundles...');
+        
+        // 初始化远程资源管理器 - 临时禁用远程加载
+        if (false && sys.platform === sys.Platform.WECHAT_GAME) {
+            remoteAssetsManager.init('https://www.zheliyo.com/minigame/remote-assets/');
+        }
+        
+        const bundleNames = ['prefab-resources', 'audio-resources', 'level-configs', 'ui-resources'];
+        const bundlePromises = bundleNames.map(name => this.loadBundleWithFallback(name));
+        
+        let loadedCount = 0;
+        const total = bundleNames.length;
+        
         try {
-            // 加载预制体分包
-            this.prefabBundle = await this.loadBundle('prefab-resources');
-            PrintLog(`prefab-resources bundle loaded: ${this.prefabBundle ? 'success' : 'failed'}`);
+            // 并行加载所有分包
+            const results = await Promise.allSettled(bundlePromises);
             
-            // 加载音频分包  
-            this.audioBundle = await this.loadBundle('audio-resources');
-            PrintLog(`audio-resources bundle loaded: ${this.audioBundle ? 'success' : 'failed'}`);
+            results.forEach((result, index) => {
+                const bundleName = bundleNames[index];
+                if (result.status === 'fulfilled') {
+                    const bundle = result.value;
+                    switch(bundleName) {
+                        case 'prefab-resources':
+                            this.prefabBundle = bundle;
+                            break;
+                        case 'audio-resources':
+                            this.audioBundle = bundle;
+                            break;
+                        case 'level-configs':
+                            this.configBundle = bundle;
+                            break;
+                        case 'ui-resources':
+                            this.uiBundle = bundle;
+                            break;
+                    }
+                    loadedCount++;
+                    PrintLog(`✅ ${bundleName} bundle loaded successfully`);
+                } else {
+                    PrintError(`❌ ${bundleName} bundle failed to load: ${result.reason}`);
+                }
+                
+                // 更新进度
+                if (progressCallback) {
+                    progressCallback(index + 1, total);
+                }
+            });
             
-            // 加载配置分包
-            this.configBundle = await this.loadBundle('level-configs');
-            PrintLog(`level-configs bundle loaded: ${this.configBundle ? 'success' : 'failed'}`);
-            
-            // 加载UI分包
-            this.uiBundle = await this.loadBundle('ui-resources');
-            PrintLog(`ui-resources bundle loaded: ${this.uiBundle ? 'success' : 'failed'}`);
-            
-            PrintLog('所有分包bundles加载完成!');
+            PrintLog(`🎉 分包加载完成! 成功: ${loadedCount}/${total}`);
+            return loadedCount === total;
         } catch (error) {
             PrintError(`Failed to load bundles: ${error}`);
+            return false;
         }
+    }
+
+    /** 快速初始化核心bundles - 只加载必需的分包 */
+    async initCoreBundle() {
+        PrintLog('⚡ 快速初始化核心分包...');
+        try {
+            // 同时加载预制体分包和UI资源分包，因为loadingView可能依赖UI资源
+            const [prefabBundle, uiBundle] = await Promise.all([
+                this.loadBundle('prefab-resources'),
+                this.loadBundle('ui-resources')
+            ]);
+            
+            this.prefabBundle = prefabBundle;
+            this.uiBundle = uiBundle;
+            PrintLog(`✅ 核心分包加载完成`);
+            return true;
+        } catch (error) {
+            PrintError(`核心分包加载失败: ${error}`);
+            return false;
+        }
+    }
+
+    /** 延迟加载其他分包 */
+    async loadRemainingBundles() {
+        PrintLog('🔄 开始加载剩余分包...');
+        const promises = [
+            this.loadBundle('audio-resources').then(bundle => {
+                this.audioBundle = bundle;
+                PrintLog('✅ audio-resources bundle 加载成功');
+                return bundle;
+            }).catch(err => {
+                PrintError('❌ audio-resources bundle 加载失败:', err);
+                throw err;
+            }),
+            this.loadBundle('level-configs').then(bundle => {
+                this.configBundle = bundle;
+                PrintLog('✅ level-configs bundle 加载成功');
+                return bundle;
+            }).catch(err => {
+                PrintError('❌ level-configs bundle 加载失败:', err);
+                throw err;
+            })
+        ];
+        
+        const results = await Promise.allSettled(promises);
+        
+        let successCount = 0;
+        results.forEach((result, index) => {
+            const bundleName = index === 0 ? 'audio-resources' : 'level-configs';
+            if (result.status === 'fulfilled') {
+                successCount++;
+                PrintLog(`✅ ${bundleName} 加载成功`);
+            } else {
+                PrintError(`❌ ${bundleName} 加载失败:`, result.reason);
+            }
+        });
+        
+        PrintLog(`🎉 剩余分包加载完成! 成功: ${successCount}/2`);
+        
+        if (successCount < 2) {
+            throw new Error(`分包加载失败，成功: ${successCount}/2`);
+        }
+    }
+
+    /** 带回退的加载bundle - 优先远程，失败时本地 */
+    private async loadBundleWithFallback(bundleName: string): Promise<AssetManager.Bundle> {
+        // 微信小游戏平台尝试远程加载
+        if (sys.platform === sys.Platform.WECHAT_GAME) {
+            try {
+                PrintLog(`🌐 尝试加载远程分包: ${bundleName}`);
+                const remoteBundle = await remoteAssetsManager.loadRemoteBundle(bundleName);
+                return remoteBundle as AssetManager.Bundle;
+            } catch (remoteError) {
+                PrintError(`远程分包加载失败，回退到本地: ${remoteError}`);
+            }
+        }
+        
+        // 回退到本地加载
+        return this.loadBundle(bundleName);
     }
 
     /** 加载bundle */
     private loadBundle(bundleName: string): Promise<AssetManager.Bundle> {
         return new Promise((resolve, reject) => {
             // 尝试多种方式加载bundle
-            PrintLog(`正在尝试加载bundle: ${bundleName}`);
+            PrintLog(`正在尝试加载本地bundle: ${bundleName}`);
             
             assetManager.loadBundle(bundleName, (err, bundle) => {
                 if (err) {
@@ -173,7 +284,18 @@ class Helper {
                     bundleName = 'level-configs';
                     PrintLog(`使用level-configs bundle加载: ${finalUrl}`);
                 } else {
-                    PrintError(`level-configs bundle 未加载，回退到resources bundle`);
+                    PrintError(`level-configs bundle 未加载，尝试延迟加载...`);
+                    // 关卡配置分包未加载，异步加载后重试
+                    this.loadBundle('level-configs').then(configBundle => {
+                        this.configBundle = configBundle;
+                        PrintLog(`level-configs bundle 延迟加载成功，重试加载配置: ${url}`);
+                        // 重新调用加载
+                        this.loadCommonAssetSync(url, type).then(resolve).catch(resolve);
+                    }).catch(err => {
+                        PrintError(`level-configs bundle 延迟加载失败: ${err}`);
+                        resolve(null); // 加载失败，返回null而不是抛出错误
+                    });
+                    return; // 提前返回，等待异步加载完成
                 }
             } else if (url.startsWith('sound/')) {
                 if (this.audioBundle) {
@@ -181,7 +303,18 @@ class Helper {
                     bundleName = 'audio-resources';
                     PrintLog(`使用audio-resources bundle加载: ${finalUrl}`);
                 } else {
-                    PrintError(`audio-resources bundle 未加载，回退到resources bundle`);
+                    PrintError(`audio-resources bundle 未加载，尝试延迟加载...`);
+                    // 音频分包未加载，异步加载后重试
+                    this.loadBundle('audio-resources').then(audioBundle => {
+                        this.audioBundle = audioBundle;
+                        PrintLog(`audio-resources bundle 延迟加载成功，重试加载音频: ${url}`);
+                        // 重新调用加载
+                        this.loadCommonAssetSync(url, type).then(resolve).catch(resolve);
+                    }).catch(err => {
+                        PrintError(`audio-resources bundle 延迟加载失败: ${err}`);
+                        resolve(null); // 加载失败，返回null而不是抛出错误
+                    });
+                    return; // 提前返回，等待异步加载完成
                 }
             } else if (url.startsWith('head/') || url.startsWith('images/')) {
                 // 头像和广告图片已移动到ui-resources分包
@@ -318,11 +451,27 @@ class Helper {
 
     /** 检查bundle状态 */
     checkBundleStatus() {
-        PrintLog(`Bundle状态检查:`);
-        PrintLog(`- prefab-resources: ${this.prefabBundle ? '已加载' : '未加载'}`);
-        PrintLog(`- audio-resources: ${this.audioBundle ? '已加载' : '未加载'}`);
-        PrintLog(`- level-configs: ${this.configBundle ? '已加载' : '未加载'}`);
-        PrintLog(`- ui-resources: ${this.uiBundle ? '已加载' : '未加载'}`);
+        const status = {
+            prefabLoaded: !!this.prefabBundle,
+            audioLoaded: !!this.audioBundle,
+            configLoaded: !!this.configBundle,
+            uiLoaded: !!this.uiBundle,
+            loadedCount: 0,
+            totalCount: 4,
+            allLoaded: false
+        };
+        
+        status.loadedCount = [status.prefabLoaded, status.audioLoaded, status.configLoaded, status.uiLoaded]
+            .filter(Boolean).length;
+        status.allLoaded = status.loadedCount === status.totalCount;
+        
+        PrintLog(`Bundle状态检查: ${status.loadedCount}/${status.totalCount}`);
+        PrintLog(`- prefab-resources: ${this.prefabBundle ? '✅' : '❌'}`);
+        PrintLog(`- audio-resources: ${this.audioBundle ? '✅' : '❌'}`);
+        PrintLog(`- level-configs: ${this.configBundle ? '✅' : '❌'}`);
+        PrintLog(`- ui-resources: ${this.uiBundle ? '✅' : '❌'}`);
+        
+        return status;
     }
 
     /** 等待bundles加载完成 */
