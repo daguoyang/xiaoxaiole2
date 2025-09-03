@@ -1,4 +1,4 @@
-import { _decorator, Node, Vec3, Prefab, instantiate, v2, ScrollView, PageView } from 'cc';
+import { _decorator, Node, Vec3, Prefab, instantiate, v2, ScrollView, PageView, UITransform } from 'cc';
 import { BaseViewCmpt } from '../../components/baseViewCmpt';
 import { ScrollViewCmpt } from '../../components/scrollViewCmpt';
 import { EventName } from '../../const/eventName';
@@ -58,11 +58,19 @@ export class homeViewCmpt extends BaseViewCmpt {
         this.scrollview = this.viewList.get('page/view/content/home/scrollview').getComponent(ScrollViewCmpt);
         this.scrollview.node.on("scroll-to-top", this.scrollingToTop, this);
         
-        // 隐藏商店按钮
+        // 隐藏商店和分享按钮
         let shopBtn = this.btnNode.getChildByName('shopBtn');
         if (shopBtn) {
             shopBtn.active = false;
         }
+        
+        let shareBtn = this.btnNode.getChildByName('shareBtn');
+        if (shareBtn) {
+            shareBtn.active = false;
+        }
+        
+        // 重新排列剩余的三个按钮：排行、主页、设置
+        this.rearrangeBottomButtons();
         
         // 设置默认显示home页面
         this.scheduleOnce(() => {
@@ -115,14 +123,78 @@ export class homeViewCmpt extends BaseViewCmpt {
         Advertise.showBannerAds();
     }
     
+    /** 重新排列底部按钮，只显示三个：排行、主页、设置 */
+    rearrangeBottomButtons() {
+        if (!this.btnNode) return;
+        
+        // 获取所有子节点
+        const allChildren = this.btnNode.children;
+        const visibleButtons = [];
+        
+        // 找出需要显示的按钮（排行、主页、设置）
+        allChildren.forEach(child => {
+            if (child.name === 'rankBtn' || child.name === 'homeBtn' || child.name === 'settingBtn') {
+                visibleButtons.push(child);
+            }
+        });
+        
+        // 如果按钮数量不是3个，直接返回
+        if (visibleButtons.length !== 3) {
+            console.log('可见按钮数量不正确:', visibleButtons.length);
+            return;
+        }
+        
+        // 获取btnNode的宽度，将按钮均匀分布
+        const uiTransform = this.btnNode.getComponent('UITransform');
+        if (!uiTransform) {
+            console.log('无法获取UITransform组件');
+            return;
+        }
+        const btnNodeWidth = uiTransform.width;
+        const buttonSpacing = btnNodeWidth / 3; // 平均分成3份
+        
+        // 按照顺序排列：排行、主页、设置
+        const buttonOrder = ['rankBtn', 'homeBtn', 'settingBtn'];
+        
+        buttonOrder.forEach((btnName, index) => {
+            const button = this.btnNode.getChildByName(btnName);
+            if (button) {
+                // 计算新的x位置，使三个按钮均匀分布
+                const newX = -btnNodeWidth/2 + buttonSpacing * (index + 0.5);
+                button.setPosition(newX, button.position.y, button.position.z);
+                
+                // 隐藏分割线（通常命名为line或divider）
+                const line = button.getChildByName('line');
+                if (line) {
+                    line.active = false;
+                }
+                
+                // 也尝试隐藏其他可能的分割线命名
+                ['divider', 'separator', 'border'].forEach(lineName => {
+                    const lineNode = button.getChildByName(lineName);
+                    if (lineNode) {
+                        lineNode.active = false;
+                    }
+                });
+                
+                console.log(`按钮 ${btnName} 重新定位到 x: ${newX}`);
+            }
+        });
+        
+        console.log('底部按钮重新排列完成：排行、主页、设置均匀分布');
+    }
+    
     setDefaultPage() {
         console.log('设置默认显示home页面');
         let pages = this.pageView.getPages();
         console.log('当前页面数量:', pages.length);
         
-        // 隐藏商店页面内容，但保留在PageView中
+        // 隐藏商店和分享页面内容，但保留在PageView中
         if (pages[0]) {
             pages[0].active = false; // 商店页面永远不显示
+        }
+        if (pages[3]) {
+            pages[3].active = false; // 分享页面永远不显示
         }
         
         // 设置home页面为默认显示
@@ -130,7 +202,7 @@ export class homeViewCmpt extends BaseViewCmpt {
             if (idx === Pages.home) {
                 item.active = true;
                 console.log(`页面${idx}(home) active: true`);
-            } else if (idx !== Pages.shop) {
+            } else if (idx !== Pages.shop && idx !== Pages.share) {
                 item.active = false;
                 console.log(`页面${idx} active: false`);
             }
@@ -303,13 +375,10 @@ export class homeViewCmpt extends BaseViewCmpt {
         });
         this.pageView.scrollToPage(Pages.rank, this.pageTime);
     }
+    // 分享按钮点击事件（禁用）
     onClick_shareBtn(node: Node) {
-        App.audio.play('button_click');
-        this.showSelectedBtn(node.name);
-        this.pageView.getPages().forEach((item, idx) => {
-            item.active = idx == Pages.share;
-        });
-        this.pageView.scrollToPage(Pages.share, this.pageTime);
+        console.log('分享功能已禁用');
+        // 不执行任何操作，分享功能已移除
     }
 
     showSelectedBtn(n: string) {
@@ -322,9 +391,9 @@ export class homeViewCmpt extends BaseViewCmpt {
     evtPageView(pv: PageView) {
         let pageIndex = pv.getCurrentPageIndex();
         
-        // 阻止访问商店页面，自动跳转到home页面
-        if (pageIndex == Pages.shop) {
-            console.log('阻止访问商店页面，跳转到home页面');
+        // 阻止访问商店和分享页面，自动跳转到home页面
+        if (pageIndex == Pages.shop || pageIndex == Pages.share) {
+            console.log(`阻止访问${pageIndex == Pages.shop ? '商店' : '分享'}页面，跳转到home页面`);
             pv.scrollToPage(Pages.home, 0.2);
             this.showSelectedBtn('homeBtn');
             return;
