@@ -1,4 +1,4 @@
-import { _decorator, Node, Vec3, Prefab, instantiate, v2, ScrollView, PageView, UITransform } from 'cc';
+import { _decorator, Node, Vec3, Prefab, instantiate, v2, ScrollView, PageView, UITransform, Sprite, SpriteFrame, Color } from 'cc';
 import { BaseViewCmpt } from '../../components/baseViewCmpt';
 import { ScrollViewCmpt } from '../../components/scrollViewCmpt';
 import { EventName } from '../../const/eventName';
@@ -60,14 +60,17 @@ export class homeViewCmpt extends BaseViewCmpt {
         
         // 隐藏商店和分享按钮
         let shopBtn = this.btnNode.getChildByName('shopBtn');
+        let shareBtn = this.btnNode.getChildByName('shareBtn');
+        
         if (shopBtn) {
             shopBtn.active = false;
         }
-        
-        let shareBtn = this.btnNode.getChildByName('shareBtn');
         if (shareBtn) {
             shareBtn.active = false;
         }
+        
+        // 暂时跳过背景图片替换，专注于按钮布局
+        // this.changeToThreeButtonBackground();
         
         // 重新排列剩余的三个按钮：排行、主页、设置
         this.rearrangeBottomButtons();
@@ -123,65 +126,120 @@ export class homeViewCmpt extends BaseViewCmpt {
         Advertise.showBannerAds();
     }
     
+    /** 更换底部背景图片为3按钮版本 */
+    async changeToThreeButtonBackground() {
+        if (!this.btnNode) return;
+        
+        try {
+            // 加载新的3按钮背景图片 - 尝试不同的路径
+            let spriteFrame: SpriteFrame = null;
+            
+            const paths = [
+                'ui/Sprite/acheck/functionbg_3btn',
+                'functionbg_3btn',
+                'Sprite/acheck/functionbg_3btn',
+                'acheck/functionbg_3btn'
+            ];
+            
+            for (const path of paths) {
+                try {
+                    console.log(`尝试加载路径: ${path}`);
+                    spriteFrame = await ResLoadHelper.loadCommonAssetSync(path, SpriteFrame);
+                    if (spriteFrame) {
+                        console.log(`✅ 成功加载背景图片: ${path}`);
+                        break;
+                    }
+                } catch (error) {
+                    console.log(`路径 ${path} 加载失败: ${error.message}`);
+                }
+            }
+            
+            if (spriteFrame) {
+                // 递归查找所有包含 Sprite 组件的节点
+                const findSpriteNodes = (node: Node): Node[] => {
+                    const result: Node[] = [];
+                    const sprite = node.getComponent(Sprite);
+                    if (sprite) {
+                        result.push(node);
+                    }
+                    for (const child of node.children) {
+                        result.push(...findSpriteNodes(child));
+                    }
+                    return result;
+                };
+                
+                const spriteNodes = findSpriteNodes(this.btnNode);
+                console.log(`找到 ${spriteNodes.length} 个包含Sprite组件的节点`);
+                
+                // 尝试替换所有可能的背景图片
+                let replaced = false;
+                for (const spriteNode of spriteNodes) {
+                    const sprite = spriteNode.getComponent(Sprite);
+                    if (sprite && sprite.spriteFrame) {
+                        const originalName = sprite.spriteFrame.name;
+                        console.log(`检查节点 ${spriteNode.name}，原图片: ${originalName}`);
+                        
+                        // 如果是 functionbg 相关的图片，就替换
+                        if (originalName && originalName.includes('functionbg')) {
+                            sprite.spriteFrame = spriteFrame;
+                            console.log(`✅ 成功替换节点 ${spriteNode.name} 的背景图片`);
+                            replaced = true;
+                        }
+                    }
+                }
+                
+                if (!replaced) {
+                    console.log('❌ 未找到需要替换的背景图片');
+                    // 列出所有找到的图片，用于调试
+                    spriteNodes.forEach((node, index) => {
+                        const sprite = node.getComponent(Sprite);
+                        const name = sprite?.spriteFrame?.name || 'null';
+                        console.log(`  节点${index}: ${node.name} -> ${name}`);
+                    });
+                }
+            } else {
+                console.log('❌ 加载3按钮背景图片失败');
+            }
+        } catch (error) {
+            console.error('❌ 更换背景图片时发生错误:', error);
+        }
+    }
+    
     /** 重新排列底部按钮，只显示三个：排行、主页、设置 */
     rearrangeBottomButtons() {
         if (!this.btnNode) return;
         
-        // 获取所有子节点
-        const allChildren = this.btnNode.children;
-        const visibleButtons = [];
+        // 获取所有按钮
+        let rankBtn = this.btnNode.getChildByName('rankBtn');
+        let homeBtn = this.btnNode.getChildByName('homeBtn'); 
+        let settingBtn = this.btnNode.getChildByName('settingBtn');
         
-        // 找出需要显示的按钮（排行、主页、设置）
-        allChildren.forEach(child => {
-            if (child.name === 'rankBtn' || child.name === 'homeBtn' || child.name === 'settingBtn') {
-                visibleButtons.push(child);
-            }
-        });
-        
-        // 如果按钮数量不是3个，直接返回
-        if (visibleButtons.length !== 3) {
-            console.log('可见按钮数量不正确:', visibleButtons.length);
+        if (!rankBtn || !homeBtn || !settingBtn) {
+            console.error('❌ 找不到必要的按钮');
             return;
         }
+
+        // 将三个按钮均匀分布
+        // 分成3个区域，每个区域宽度约为 379px
+        const positions = [
+            -379,  // 左区域中心 (rankBtn)
+            0,     // 中心区域中心 (homeBtn) 
+            379    // 右区域中心 (settingBtn)
+        ];
         
-        // 获取btnNode的宽度，将按钮均匀分布
-        const uiTransform = this.btnNode.getComponent('UITransform');
-        if (!uiTransform) {
-            console.log('无法获取UITransform组件');
-            return;
-        }
-        const btnNodeWidth = uiTransform.width;
-        const buttonSpacing = btnNodeWidth / 3; // 平均分成3份
+        // 重新定位按钮
+        rankBtn.position = new Vec3(positions[0], rankBtn.position.y, rankBtn.position.z);
+        homeBtn.position = new Vec3(positions[1], homeBtn.position.y, homeBtn.position.z);
+        settingBtn.position = new Vec3(positions[2], settingBtn.position.y, settingBtn.position.z);
         
-        // 按照顺序排列：排行、主页、设置
-        const buttonOrder = ['rankBtn', 'homeBtn', 'settingBtn'];
-        
-        buttonOrder.forEach((btnName, index) => {
-            const button = this.btnNode.getChildByName(btnName);
-            if (button) {
-                // 计算新的x位置，使三个按钮均匀分布
-                const newX = -btnNodeWidth/2 + buttonSpacing * (index + 0.5);
-                button.setPosition(newX, button.position.y, button.position.z);
-                
-                // 隐藏分割线（通常命名为line或divider）
-                const line = button.getChildByName('line');
-                if (line) {
-                    line.active = false;
-                }
-                
-                // 也尝试隐藏其他可能的分割线命名
-                ['divider', 'separator', 'border'].forEach(lineName => {
-                    const lineNode = button.getChildByName(lineName);
-                    if (lineNode) {
-                        lineNode.active = false;
-                    }
-                });
-                
-                console.log(`按钮 ${btnName} 重新定位到 x: ${newX}`);
-            }
+        // 确保按钮可见
+        [rankBtn, homeBtn, settingBtn].forEach(btn => {
+            btn.active = true;
+            btn.opacity = 255;
+            btn.scale = new Vec3(1, 1, 1);
         });
         
-        console.log('底部按钮重新排列完成：排行、主页、设置均匀分布');
+        console.log('✅ 按钮重新排列完成');
     }
     
     setDefaultPage() {
@@ -382,10 +440,19 @@ export class homeViewCmpt extends BaseViewCmpt {
     }
 
     showSelectedBtn(n: string) {
+        if (!this.btnNode) return;
+        
         this.btnNode.children.forEach(item => {
-            item.getChildByName("s").active = n == item.name;
-            item.getChildByName("n").active = n != item.name;
-        })
+            let sNode = item.getChildByName("s");
+            let nNode = item.getChildByName("n");
+            
+            if (sNode) {
+                sNode.active = n == item.name;
+            }
+            if (nNode) {
+                nNode.active = n != item.name;
+            }
+        });
     }
 
     evtPageView(pv: PageView) {

@@ -101,75 +101,111 @@ export class challengeViewCmpt extends BaseViewCmpt {
     }
 
     onClick_playBtn() {
-        App.audio.play('button_click');
-        
-        // 检查体力是否足够
-        if (!App.heart.canStartGame()) {
-            // 体力不足时通过广告获取体力并开始游戏
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.startGameLogic();
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
+        console.log('🎮 [Challenge] onClick_playBtn 被调用');
+        try {
+            App.audio.play('button_click');
+            
+            console.log('🎮 [Challenge] 检查体力状态...');
+            console.log('🎮 [Challenge] 当前体力:', App.heart.getCurrentHeart());
+            console.log('🎮 [Challenge] 可以开始游戏:', App.heart.canStartGame());
+            
+            // 检查体力是否足够
+            if (!App.heart.canStartGame()) {
+                console.log('🎮 [Challenge] 体力不足，尝试通过广告获取体力');
+                // 体力不足时通过广告获取体力并开始游戏
+                App.heart.showHeartInsufficientTipsWithAd(() => {
+                    console.log('🎮 [Challenge] 广告观看完成，尝试消耗体力');
+                    // 广告观看完成后，消耗刚获得的体力并开始游戏
+                    if (App.heart.consumeHeart(1)) {
+                        console.log('🎮 [Challenge] 体力消耗成功，开始游戏');
+                        this.startGameLogic();
+                    } else {
+                        console.error('❌ [Challenge] 体力消耗失败');
+                        App.view.showMsgTips('❌ 体力消耗失败，请重试');
+                    }
+                });
+                return;
+            }
+            
+            console.log('🎮 [Challenge] 体力充足，直接消耗体力');
+            // 消耗1点体力
+            if (!App.heart.consumeHeart(1)) {
+                console.log('🎮 [Challenge] 直接消耗体力失败，尝试通过广告获取');
+                // 体力不足时通过广告获取体力并开始游戏
+                App.heart.showHeartInsufficientTipsWithAd(() => {
+                    console.log('🎮 [Challenge] 广告观看完成(第二次)，尝试消耗体力');
+                    // 广告观看完成后，消耗刚获得的体力并开始游戏
+                    if (App.heart.consumeHeart(1)) {
+                        console.log('🎮 [Challenge] 体力消耗成功(第二次)，开始游戏');
+                        this.startGameLogic();
+                    } else {
+                        console.error('❌ [Challenge] 体力消耗失败(第二次)');
+                        App.view.showMsgTips('❌ 体力消耗失败，请重试');
+                    }
+                });
+                return;
+            }
+            
+            console.log('🎮 [Challenge] 体力消耗成功，开始游戏逻辑');
+            this.startGameLogic();
+        } catch (error) {
+            console.error('❌ [Challenge] onClick_playBtn 执行出错:', error);
         }
-        
-        // 消耗1点体力
-        if (!App.heart.consumeHeart(1)) {
-            // 体力不足时通过广告获取体力并开始游戏
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.startGameLogic();
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
-        }
-        
-        this.startGameLogic();
     }
 
     /** 执行开始游戏的具体逻辑 */
     private async startGameLogic() {
-        // 播放体力消耗动画（从开始按钮位置开始）
-        let playBtn = this.viewList.get('animNode/content/bg/playBtn');
-        if (playBtn) {
-            console.log('播放体力消耗动画...');
-            await this.playHeartConsumeAnimation(playBtn.worldPosition);
-            console.log('体力消耗动画完成');
-        }
-        
-        App.gameLogic.toolsArr = [];
-        for (let i = 1; i < 4; i++) {
-            let s = this.viewList.get(`animNode/content/bg/toolBtn${i}`).getChildByName('s');
-            if (s.active) {
-                App.gameLogic.toolsArr.push(i + 8);
-                switch (i + 8) {
-                    case Bomb.allSame:
-                        GlobalFuncHelper.setBomb(Bomb.allSame, -1);
-                        break;;
-                    case Bomb.hor:
-                        GlobalFuncHelper.setBomb(Bomb.hor, -1);
-                        break;;
-                    case Bomb.ver:
-                        GlobalFuncHelper.setBomb(Bomb.ver, -1);
-                        break;;
-                    case Bomb.bomb:
-                        GlobalFuncHelper.setBomb(Bomb.bomb, -1);
-                        break;;
+        console.log('🎮 [Challenge] startGameLogic 开始执行...');
+        try {
+            // 播放体力消耗动画（从开始按钮位置开始）
+            let playBtn = this.viewList.get('animNode/content/bg/playBtn');
+            if (playBtn) {
+                console.log('🎮 [Challenge] 播放体力消耗动画...');
+                await this.playHeartConsumeAnimation(playBtn.worldPosition);
+                console.log('🎮 [Challenge] 体力消耗动画完成');
+            } else {
+                console.warn('⚠️ [Challenge] 未找到开始按钮，跳过动画');
+            }
+            
+            console.log('🎮 [Challenge] 重置游戏工具数组');
+            App.gameLogic.toolsArr = [];
+            console.log('🎮 [Challenge] 检查选中的工具...');
+            for (let i = 1; i < 4; i++) {
+                let toolBtn = this.viewList.get(`animNode/content/bg/toolBtn${i}`);
+                if (toolBtn) {
+                    let s = toolBtn.getChildByName('s');
+                    if (s && s.active) {
+                        console.log(`🎮 [Challenge] 工具${i}已选中，添加到游戏工具数组`);
+                        App.gameLogic.toolsArr.push(i + 8);
+                        switch (i + 8) {
+                            case Bomb.allSame:
+                                GlobalFuncHelper.setBomb(Bomb.allSame, -1);
+                                break;;
+                            case Bomb.hor:
+                                GlobalFuncHelper.setBomb(Bomb.hor, -1);
+                                break;;
+                            case Bomb.ver:
+                                GlobalFuncHelper.setBomb(Bomb.ver, -1);
+                                break;;
+                            case Bomb.bomb:
+                                GlobalFuncHelper.setBomb(Bomb.bomb, -1);
+                                break;;
+                        }
+                    }
+                } else {
+                    console.warn(`⚠️ [Challenge] 工具按钮${i}未找到`);
                 }
             }
+            
+            console.log('🎮 [Challenge] 准备进入游戏...');
+            console.log('🎮 [Challenge] 关卡:', this.lv);
+            // App.view.closeView(ViewName.Single.eHomeView);
+            this.onClick_closeBtn();
+            App.view.openView(ViewName.Single.eGameView, this.lv);
+            console.log('🎮 [Challenge] startGameLogic 执行完成');
+        } catch (error) {
+            console.error('❌ [Challenge] startGameLogic 执行出错:', error);
         }
-        
-        console.log('准备进入游戏...');
-        // App.view.closeView(ViewName.Single.eHomeView);
-        this.onClick_closeBtn();
-        App.view.openView(ViewName.Single.eGameView, this.lv);
     }
 
     async onClickToolBtn(btn: Node) {

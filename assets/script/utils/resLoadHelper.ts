@@ -130,8 +130,9 @@ class Helper {
         
         PrintLog(`🎉 剩余分包加载完成! 成功: ${successCount}/2`);
         
+        // 即使有分包加载失败也不抛出错误，允许游戏继续运行
         if (successCount < 2) {
-            throw new Error(`分包加载失败，成功: ${successCount}/2`);
+            PrintError(`部分分包加载失败，成功: ${successCount}/2，游戏将尝试继续运行`);
         }
     }
 
