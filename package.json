@@ -5,5 +5,9 @@
     "version": "3.8.3"
   },
   "_sourceId": "d5d276b9-ed8c-4ddb-969b-bdc8eb2dbcee",
-  "_storeId": "4c8b938d737a6fd2bf18ef399e9942c6"
+  "_storeId": "4c8b938d737a6fd2bf18ef399e9942c6",
+  "scripts": {
+    "post-build": "node build-post-process.js",
+    "build-wechat": "echo '请在Cocos Creator中构建微信小游戏，然后运行：' && echo 'npm run post-build'"
+  }
 }
