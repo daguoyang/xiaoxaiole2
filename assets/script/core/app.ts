@@ -74,14 +74,14 @@ class GameApp extends SingletonClass<GameApp> {
         // 广告配置
         const adConfig = {
             // 🚨 上线前需要填入真实的广告位ID
-            adUnitId: "adunit-xxxxxxxxxx", // 微信广告位ID
+            adUnitId: "adunit-7fc34b1dba8ed852", // 微信广告位ID
             mockDuration: 15,              // 模拟广告时长
             mockSkipDelay: 5,              // 5秒后允许跳过
             enableDebugLog: true           // 开启调试日志
         };
         
         // 🚨 开发阶段设置为 true，上线后改为 false
-        const isDevelopment = true;
+        const isDevelopment = false;
         
         // 初始化广告管理器
         adManager.init(adConfig, isDevelopment);

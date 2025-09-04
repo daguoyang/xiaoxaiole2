@@ -30,8 +30,8 @@ export interface AdConfig {
 
 // 默认配置
 export const DEFAULT_AD_CONFIG: AdConfig = {
-    // 🚨 上线前改为 false
-    enableMockAds: true,
+    // ✅ 已切换为生产模式，使用真实广告
+    enableMockAds: false,
     
     mockAdSettings: {
         videoDuration: 15,        // 15秒激励视频
@@ -40,10 +40,10 @@ export const DEFAULT_AD_CONFIG: AdConfig = {
     },
     
     realAdIds: {
-        // 🚨 上线前填入真实广告位ID
-        bannerId: "",
-        videoId: "",
-        interstitialId: "",
+        // ✅ 已配置微信小游戏流量主广告位ID
+        bannerId: "",  // 暂无横幅广告
+        videoId: "adunit-7fc34b1dba8ed852",  // 你的激励广告位ID
+        interstitialId: "",  // 暂无插屏广告
     },
     
     adStrategy: {
