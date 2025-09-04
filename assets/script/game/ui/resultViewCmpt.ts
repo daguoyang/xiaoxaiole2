@@ -258,7 +258,7 @@ export class ResultViewCmpt extends BaseViewCmpt {
         // 检查金币是否足够
         if (currentGold >= costGold) {
             // 金币足够，扣除金币并继续游戏
-            GlobalFuncHelper.addGold(-costGold);
+            GlobalFuncHelper.setGold(-costGold);
             App.view.showMsgTips(`花费${costGold}金币继续游戏！`);
             
             console.log('金币继续游戏成功，重新开始关卡');
