@@ -259,15 +259,16 @@ export class ResultViewCmpt extends BaseViewCmpt {
         if (currentGold >= costGold) {
             // 金币足够，扣除金币并继续游戏
             GlobalFuncHelper.setGold(-costGold);
-            App.view.showMsgTips(`花费${costGold}金币继续游戏！`);
+            App.view.showMsgTips(`花费${costGold}金币，增加5步！`);
             
-            console.log('金币继续游戏成功，重新开始关卡');
+            console.log('金币继续游戏成功，增加5步数');
             
-            // 延迟一下关闭结果界面，重新开始游戏
+            // 发送事件给游戏界面，增加5步
+            App.event.emit(EventName.AddSteps, 5);
+            
+            // 延迟关闭失败界面
             this.scheduleOnce(() => {
                 this.onClick_closeBtn();
-                // 重新打开挑战界面
-                App.view.openView(ViewName.Single.eChallengeView, this.level);
             }, 1.0);
             
         } else {
@@ -284,6 +285,13 @@ export class ResultViewCmpt extends BaseViewCmpt {
 
     onClick_closeBtn() {
         App.view.closeView(ViewName.Single.eResultView);
-        App.view.openView(ViewName.Single.eHomeView);
+        // 如果是失败界面且通过金币继续，则返回游戏界面；否则返回主界面
+        if (!this.isWin) {
+            // 失败界面关闭后返回游戏界面
+            App.view.openView(ViewName.Single.eGameView);
+        } else {
+            // 胜利界面关闭后返回主界面
+            App.view.openView(ViewName.Single.eHomeView);
+        }
     }
 }
