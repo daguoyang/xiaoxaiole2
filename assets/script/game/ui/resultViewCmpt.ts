@@ -25,23 +25,9 @@ export class ResultViewCmpt extends BaseViewCmpt {
     }
 
     updateButtonTexts() {
-        // 修改分享按钮文本为"看广告"
-        let shareBtn = this.viewList.get('animNode/lose/shareBtn') || this.viewList.get('animNode/win/shareBtn');
-        if (shareBtn) {
-            let label = shareBtn.getComponentInChildren(Label);
-            if (label) {
-                label.string = "看广告";
-            }
-        }
-        
-        // 修改继续按钮文本为"购买"（当金币充足时）或"看广告"（当金币不足时）
-        let continueBtn = this.viewList.get('animNode/lose/continueBtn');
-        if (continueBtn) {
-            let label = continueBtn.getComponentInChildren(Label);
-            if (label) {
-                label.string = "购买";
-            }
-        }
+        // 按钮文字现在直接在预制体文件中修改了
+        // 分享按钮: "获取🎬"
+        // 继续按钮: "金币"
     }
 
     async loadExtraData(lv: number, isWin: boolean, coutArr: any[], starCount: number) {
@@ -63,8 +49,10 @@ export class ResultViewCmpt extends BaseViewCmpt {
             this.handleLose();
         }
         
-        // 更新按钮文本
-        this.updateContinueButtonText();
+        // 更新按钮文本（延迟确保界面完全加载）
+        this.scheduleOnce(() => {
+            this.updateButtonTexts();
+        }, 0.1);
     }
 
     handleLose() {
@@ -119,19 +107,12 @@ export class ResultViewCmpt extends BaseViewCmpt {
 
     /** 更新继续按钮文本 */
     updateContinueButtonText() {
-        // 根据金币数量决定继续按钮文本
+        // 显示200金币文本，与"获取🎬"按钮相对应
         let continueBtn = this.viewList.get('animNode/lose/continueBtn');
         if (continueBtn) {
             let label = continueBtn.getComponentInChildren(Label);
             if (label) {
-                const costGold = 200;
-                const currentGold = GlobalFuncHelper.getGold();
-                
-                if (currentGold >= costGold) {
-                    label.string = `${costGold}金币继续`;
-                } else {
-                    label.string = `${costGold}金币继续\n(金币不足)`;
-                }
+                label.string = "200金币";
             }
         }
     }
@@ -174,21 +155,28 @@ export class ResultViewCmpt extends BaseViewCmpt {
         }, 0.5);
     }
 
-    /** 点击分享按钮（看广告）*/
+    /** 点击获取按钮（看广告获得5步）*/
     onClick_shareBtn() {
         App.audio.play('button_click');
-        console.log('点击分享按钮（看广告）');
+        console.log('点击获取按钮（看广告获得5步）');
         
         // 使用正确的广告API
         Advertise.showVideoAds((success: boolean) => {
             if (success) {
-                console.log('广告播放成功');
-                // 广告播放成功后的奖励逻辑 - 增加体力
-                App.heart.addHeart(1);
-                App.view.showMsgTips('观看广告成功！获得体力 +1');
+                console.log('广告播放成功，增加5步继续游戏');
+                
+                // 发送事件给游戏界面，增加5步
+                App.event.emit(EventName.Game.AddSteps, 5);
+                
+                console.log('看广告成功，增加5步数');
+                
+                // 延迟关闭失败界面，让玩家继续游戏
+                this.scheduleOnce(() => {
+                    App.view.closeView(ViewName.Single.eResultView);
+                }, 1.0);
+                
             } else {
                 console.log('广告播放失败或未完整观看');
-                App.view.showMsgTips('广告未完整观看，请重试');
             }
         });
     }
@@ -279,5 +267,11 @@ export class ResultViewCmpt extends BaseViewCmpt {
     onClick_guanbiBtn() {
         console.log('点击 guanbiBtn 关闭按钮');
         this.onClick_closeBtn();
+    }
+
+    /** 测试方法：手动更新按钮文字 */
+    onClick_testUpdateText() {
+        console.log('手动触发按钮文字更新');
+        this.updateButtonTexts();
     }
 }
