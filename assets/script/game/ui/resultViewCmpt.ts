@@ -193,8 +193,14 @@ export class ResultViewCmpt extends BaseViewCmpt {
         if (continueBtn) {
             let label = continueBtn.getComponentInChildren(Label);
             if (label) {
-                // 这里可以根据实际金币数量来决定显示什么文本
-                label.string = "看广告"; // 默认显示"看广告"
+                const costGold = 200;
+                const currentGold = GlobalFuncHelper.getGold();
+                
+                if (currentGold >= costGold) {
+                    label.string = `${costGold}金币继续`;
+                } else {
+                    label.string = `${costGold}金币继续\n(金币不足)`;
+                }
             }
         }
     }
@@ -225,24 +231,55 @@ export class ResultViewCmpt extends BaseViewCmpt {
         App.audio.play('button_click');
         console.log('点击分享按钮（看广告）');
         
-        // 播放广告逻辑
-        Advertise.playVideoAd(() => {
-            console.log('广告播放成功');
-            // 广告播放成功后的奖励逻辑
-            App.view.showMsgTips('观看广告成功！');
-        }, () => {
-            console.log('广告播放失败');
-            App.view.showMsgTips('广告播放失败，请重试');
+        // 使用正确的广告API
+        Advertise.showVideoAds((success: boolean) => {
+            if (success) {
+                console.log('广告播放成功');
+                // 广告播放成功后的奖励逻辑 - 增加体力
+                App.heart.addHeart(1);
+                App.view.showMsgTips('观看广告成功！获得体力 +1');
+            } else {
+                console.log('广告播放失败或未完整观看');
+                App.view.showMsgTips('广告未完整观看，请重试');
+            }
         });
     }
 
     /** 点击继续按钮（失败界面）*/
     onClick_continueBtn() {
         App.audio.play('button_click');
-        console.log('点击继续按钮');
+        console.log('点击继续按钮（200金币继续）');
         
-        // 播放广告或购买逻辑
-        this.onClick_shareBtn(); // 复用看广告逻辑
+        const costGold = 200;
+        const currentGold = GlobalFuncHelper.getGold();
+        
+        console.log(`当前金币: ${currentGold}, 需要金币: ${costGold}`);
+        
+        // 检查金币是否足够
+        if (currentGold >= costGold) {
+            // 金币足够，扣除金币并继续游戏
+            GlobalFuncHelper.addGold(-costGold);
+            App.view.showMsgTips(`花费${costGold}金币继续游戏！`);
+            
+            console.log('金币继续游戏成功，重新开始关卡');
+            
+            // 延迟一下关闭结果界面，重新开始游戏
+            this.scheduleOnce(() => {
+                this.onClick_closeBtn();
+                // 重新打开挑战界面
+                App.view.openView(ViewName.Single.eChallengeView, this.level);
+            }, 1.0);
+            
+        } else {
+            // 金币不足，提示看广告获取体力
+            const needGold = costGold - currentGold;
+            App.view.showMsgTips(`金币不足！还需要${needGold}金币。试试看广告获取体力吧！`);
+            
+            console.log('金币不足，建议观看广告获取体力');
+            
+            // 可以选择自动播放广告，或者让用户手动点击看广告按钮
+            // 这里选择让用户手动点击，符合用户预期
+        }
     }
 
     onClick_closeBtn() {
