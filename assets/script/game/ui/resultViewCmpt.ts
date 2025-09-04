@@ -1,4 +1,4 @@
-import { _decorator, Node, tween, v3, Label, instantiate, Vec3, UITransform, Sprite, SpriteFrame, resources, Color, director } from 'cc';
+import { _decorator, Node, Label, tween, v3 } from 'cc';
 import { BaseViewCmpt } from '../../components/baseViewCmpt';
 import { EventName } from '../../const/eventName';
 import { LevelConfig } from '../../const/levelConfig';
@@ -15,6 +15,8 @@ export class ResultViewCmpt extends BaseViewCmpt {
     private level: number = 0;
     private starCount: number = 0;
     private star: Node = null;
+    
+    public rewardGold: number = 100; // 闯关成功固定奖励金币数量
 
     onLoad() {
         super.onLoad();
@@ -55,7 +57,6 @@ export class ResultViewCmpt extends BaseViewCmpt {
         this.viewList.get('animNode/win').active = isWin;
         this.viewList.get('animNode/lose').active = !isWin;
         if (isWin) {
-            LevelConfig.setLevelStar(lv, starCount);
             this.handleWin(coutArr);
         }
         else {
@@ -96,11 +97,18 @@ export class ResultViewCmpt extends BaseViewCmpt {
     playStarAnim() {
         this.star.active = this.isWin;
         let count = this.starCount;
+        console.log(`播放星星动画: 是否胜利=${this.isWin}, 星星数量=${count}, 星星子节点数=${this.star.children.length}`);
+        
         if (this.isWin) {
             this.star.children.forEach((item, idx) => {
                 let sChild = item.getChildByName('s');
+                let shouldShow = idx + 1 <= count;
+                console.log(`星星${idx + 1}: 节点名=${item.name}, 有s子节点=${!!sChild}, 应该显示=${shouldShow}`);
+                
                 if (sChild) {
-                    sChild.active = idx + 1 <= count;
+                    sChild.active = shouldShow;
+                } else {
+                    console.warn(`星星${idx + 1}没有找到's'子节点`);
                 }
                 item.setScale(0, 0, 0);
                 tween(item).to(0.3 * (idx + 1), { scale: v3(1, 1, 1) }, { easing: 'backOut' }).start();
@@ -108,83 +116,6 @@ export class ResultViewCmpt extends BaseViewCmpt {
         }
     }
 
-    /** 体力飞行动画 */
-    async playHeartFlyAnimation(startPos: Vec3, isAdd: boolean = true, actuallyAdd: boolean = true) {
-        console.log(`开始播放体力飞行动画，起始位置: ${startPos}, 是否增加: ${isAdd}`);
-        return new Promise<void>((resolve) => {
-            // 直接使用resources.load加载体力图标 - 使用正确的life.png UUID
-            resources.load('285eb5fa-ad1a-4991-8637-094326a6cb2d@f9941', SpriteFrame, (err, heartSpriteFrame) => {
-                if (err || !heartSpriteFrame) {
-                    console.warn('体力图标资源加载失败，使用备用方案:', err);
-                    // 备用方案：直接增加体力，不播放动画
-                    if (isAdd && actuallyAdd) {
-                        App.heart.addHeart(1);
-                        let tipText = isAdd ? '+1' : '-1';
-                        App.view.showMsgTips(`体力 ${tipText}`);
-                    } else if (isAdd && !actuallyAdd) {
-                        console.log('资源加载失败，但体力已在胜利时增加，跳过');
-                    }
-                    resolve();
-                    return;
-                }
-                
-                console.log('体力图标资源加载成功，开始创建动画节点');
-                
-                try {
-                    // 创建飞行的体力图标
-                    let flyingHeart = new Node('flyingHeart');
-                    let sprite = flyingHeart.addComponent(Sprite);
-                    sprite.spriteFrame = heartSpriteFrame;
-                    
-                    // 设置初始位置和大小
-                    flyingHeart.setPosition(startPos);
-                    flyingHeart.setScale(1.2, 1.2, 1.2);
-                    this.node.addChild(flyingHeart);
-                    
-                    // 获取体力显示位置
-                    let heartPos = this.getHeartDisplayPosition();
-                    console.log('体力显示位置:', heartPos);
-                    
-                    // 创建飞行动画
-                    let flyTime = 1.2;
-                    
-                    tween(flyingHeart)
-                        .to(flyTime, { 
-                            position: heartPos,
-                            scale: v3(0.8, 0.8, 0.8)
-                        }, { easing: 'sineOut' })
-                        .call(() => {
-                            console.log('体力飞行动画完成');
-                            
-                            if (flyingHeart && flyingHeart.isValid) {
-                                flyingHeart.destroy();
-                            }
-                            
-                            // 实际增加体力（如果需要）
-                            if (isAdd && actuallyAdd) {
-                                App.heart.addHeart(1);
-                                App.view.showMsgTips('体力 +1');
-                            } else if (isAdd && !actuallyAdd) {
-                                console.log('体力已在胜利时增加，跳过重复添加');
-                            }
-                            
-                            resolve();
-                        })
-                        .start();
-                        
-                } catch (error) {
-                    console.error('体力飞行动画错误:', error);
-                    resolve();
-                }
-            });
-        });
-    }
-
-    /** 获取体力显示位置 */
-    private getHeartDisplayPosition(): Vec3 {
-        // 尝试获取体力显示的位置，如果找不到就使用屏幕顶部
-        return v3(0, 300, 0); // 屏幕顶部中央
-    }
 
     /** 更新继续按钮文本 */
     updateContinueButtonText() {
@@ -213,17 +144,34 @@ export class ResultViewCmpt extends BaseViewCmpt {
         // 重要：胜利时进入下一关
         if (this.isWin) {
             console.log('关卡胜利，保存进度并进入下一关');
-            LevelConfig.nextLevel();
+            
+            // 保存星星数据（重要：在用户确认进入下一关时才保存）
+            LevelConfig.setLevelStar(this.level, this.starCount);
+            console.log(`保存关卡${this.level}的星星数据: ${this.starCount}星`);
+            
+            // 闯关成功奖励金币
+            GlobalFuncHelper.setGold(this.rewardGold);
+            console.log(`闯关成功！获得${this.rewardGold}金币`);
+            
+            // 触发金币更新事件
+            App.event.emit(EventName.Game.UpdataGold);
+            
+            // 只有当前关卡等于或超过最高解锁关卡时，才解锁下一关
+            let maxLevel = LevelConfig.getCurLevel();
+            console.log(`当前通过关卡: ${this.level}, 最高解锁关卡: ${maxLevel}`);
+            
+            if (this.level >= maxLevel) {
+                console.log('首次通过此关卡，解锁下一关');
+                LevelConfig.nextLevel();
+            } else {
+                console.log('重新通过已解锁的关卡，不影响关卡解锁进度');
+            }
         }
         
-        // 播放体力飞行动画（但不实际增加体力，因为已在胜利时增加）
-        let btnPos = this.viewList.get('animNode/win/nextBtn').worldPosition;
-        this.playHeartFlyAnimation(btnPos, true, false);
-        
-        // 延迟关闭界面
+        // 延迟关闭界面（移除体力飞行动画，避免资源加载问题）
         this.scheduleOnce(() => {
             this.onClick_closeBtn();
-        }, 1.5);
+        }, 0.5);
     }
 
     /** 点击分享按钮（看广告）*/
@@ -264,11 +212,11 @@ export class ResultViewCmpt extends BaseViewCmpt {
             console.log('金币继续游戏成功，增加5步数');
             
             // 发送事件给游戏界面，增加5步
-            App.event.emit(EventName.AddSteps, 5);
+            App.event.emit(EventName.Game.AddSteps, 5);
             
-            // 延迟关闭失败界面
+            // 延迟关闭失败界面，直接关闭不跳转
             this.scheduleOnce(() => {
-                this.onClick_closeBtn();
+                App.view.closeView(ViewName.Single.eResultView);
             }, 1.0);
             
         } else {
@@ -284,14 +232,52 @@ export class ResultViewCmpt extends BaseViewCmpt {
     }
 
     onClick_closeBtn() {
-        App.view.closeView(ViewName.Single.eResultView);
-        // 如果是失败界面且通过金币继续，则返回游戏界面；否则返回主界面
-        if (!this.isWin) {
-            // 失败界面关闭后返回游戏界面
-            App.view.openView(ViewName.Single.eGameView);
+        console.log('点击关闭按钮，闯关状态:', this.isWin ? '成功' : '失败');
+        
+        if (this.isWin) {
+            // 闯关成功时，与继续游戏功能保持一致
+            console.log('闯关成功，保存进度并进入地图页面');
+            
+            // 保存星星数据（重要：在用户确认关闭时才保存）
+            LevelConfig.setLevelStar(this.level, this.starCount);
+            console.log(`保存关卡${this.level}的星星数据: ${this.starCount}星`);
+            
+            // 闯关成功奖励金币
+            GlobalFuncHelper.setGold(this.rewardGold);
+            console.log(`闯关成功！获得${this.rewardGold}金币`);
+            
+            // 触发金币更新事件
+            App.event.emit(EventName.Game.UpdataGold);
+            
+            // 只有当前关卡等于或超过最高解锁关卡时，才解锁下一关
+            let maxLevel = LevelConfig.getCurLevel();
+            console.log(`当前通过关卡: ${this.level}, 最高解锁关卡: ${maxLevel}`);
+            
+            if (this.level >= maxLevel) {
+                console.log('首次通过此关卡，解锁下一关');
+                LevelConfig.nextLevel();
+            } else {
+                console.log('重新通过已解锁的关卡，不影响关卡解锁进度');
+            }
         } else {
-            // 胜利界面关闭后返回主界面
-            App.view.openView(ViewName.Single.eHomeView);
+            // 闯关失败时，直接回到主页面
+            console.log('闯关失败，直接回到主页面');
         }
+        
+        // 关闭结果界面并打开主页面
+        App.view.closeView(ViewName.Single.eResultView);
+        App.view.openView(ViewName.Single.eHomeView);
+    }
+
+    /** 处理预制体中名为 closeBtn-001 的关闭按钮 */
+    ['onClick_closeBtn-001']() {
+        console.log('点击 closeBtn-001 关闭按钮');
+        this.onClick_closeBtn();
+    }
+
+    /** 处理预制体中名为 guanbiBtn 的关闭按钮 */
+    onClick_guanbiBtn() {
+        console.log('点击 guanbiBtn 关闭按钮');
+        this.onClick_closeBtn();
     }
 }

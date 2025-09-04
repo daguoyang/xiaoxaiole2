@@ -2097,8 +2097,62 @@ export class GameViewCmpt extends BaseViewCmpt {
     /*********************************************  btn *********************************************/
     /*********************************************  btn *********************************************/
     evtRestart() {
+        console.log('接收到重新开始事件');
+        
+        // 检查体力是否足够
+        if (!App.heart.canStartGame()) {
+            // 体力不足时通过广告获取体力并重新开始
+            App.heart.showHeartInsufficientTipsWithAd(() => {
+                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
+                if (App.heart.consumeHeart(1)) {
+                    this.restartGame();
+                } else {
+                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
+                }
+            });
+            return;
+        }
+        
+        // 消耗1点体力
+        if (!App.heart.consumeHeart(1)) {
+            // 体力不足时通过广告获取体力并重新开始
+            App.heart.showHeartInsufficientTipsWithAd(() => {
+                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
+                if (App.heart.consumeHeart(1)) {
+                    this.restartGame();
+                } else {
+                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
+                }
+            });
+            return;
+        }
+        
+        // 重新开始游戏逻辑
+        this.restartGame();
+    }
+
+    /** 执行重新开始游戏的具体逻辑 */
+    private async restartGame() {
+        // 重置游戏状态
+        this.isWin = false;
+        this.curScore = 0;
+        this.starCount = 0;
+        this.checkAgainCount = 0;
+        
+        // 强制重置所有状态
         this.forceReset();
-        this.loadExtraData(this.level);
+        
+        // 重新加载关卡数据
+        this.data = await LevelConfig.getLevelData(this.level);
+        this.setLevelInfo();
+        
+        // 重新初始化布局
+        await this.initLayout();
+        
+        // 重新开始提示计时器
+        this.startHintTimer();
+        
+        console.log('游戏重新开始完成');
     }
 
     /** 强制重置所有状态 */
@@ -2851,62 +2905,6 @@ export class GameViewCmpt extends BaseViewCmpt {
         }
     }
 
-    /** 重新开始游戏 */
-    evtRestart() {
-        console.log('重新开始游戏');
-        
-        // 检查体力是否足够
-        if (!App.heart.canStartGame()) {
-            // 体力不足时通过广告获取体力并重新开始
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.restartGame();
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
-        }
-        
-        // 消耗1点体力
-        if (!App.heart.consumeHeart(1)) {
-            // 体力不足时通过广告获取体力并重新开始
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.restartGame();
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
-        }
-        
-        // 重新开始游戏逻辑
-        this.restartGame();
-    }
-
-    /** 执行重新开始游戏的具体逻辑 */
-    private async restartGame() {
-        // 重置游戏状态
-        this.isWin = false;
-        this.curScore = 0;
-        this.starCount = 0;
-        this.checkAgainCount = 0;
-        
-        // 重新加载关卡数据
-        this.data = await LevelConfig.getLevelData(this.level);
-        this.setLevelInfo();
-        
-        // 重新初始化布局
-        await this.initLayout();
-        
-        // 重新开始提示计时器
-        this.startHintTimer();
-        
-        console.log('游戏重新开始完成');
-    }
 
     /** 更新体力显示 */
     updateHeartDisplay() {

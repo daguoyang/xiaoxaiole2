@@ -89,36 +89,8 @@ export class settingViewCmpt extends BaseViewCmpt {
     onClick_replayBtn() {
         App.audio.play('button_click');
         
-        // 检查体力是否足够
-        if (!App.heart.canStartGame()) {
-            // 体力不足时通过广告获取体力并重新开始
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.onClick_closeBtn();
-                    App.event.emit(EventName.Game.Restart);
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
-        }
-        
-        // 消耗1点体力
-        if (!App.heart.consumeHeart(1)) {
-            // 体力不足时通过广告获取体力并重新开始
-            App.heart.showHeartInsufficientTipsWithAd(() => {
-                // 广告观看完成后，消耗刚获得的体力并重新开始游戏
-                if (App.heart.consumeHeart(1)) {
-                    this.onClick_closeBtn();
-                    App.event.emit(EventName.Game.Restart);
-                } else {
-                    App.view.showMsgTips('❌ 体力消耗失败，请重试');
-                }
-            });
-            return;
-        }
-        
+        // 直接发送重新开始事件，让游戏页面处理体力检查和消耗
+        console.log('设置页面：请求重新开始游戏');
         this.onClick_closeBtn();
         App.event.emit(EventName.Game.Restart);
     }
