@@ -15,6 +15,9 @@ import { adManager } from '../../ads/AdManager';
 import { gridManagerCmpt } from './gridManagerCmpt';
 import { gridCmpt } from './item/gridCmpt';
 import { rocketCmpt } from './item/rocketCmpt';
+// 新的匹配引擎系统
+import { MatchEngine } from '../logic/matchEngine';
+import { EliminationProcessor } from '../logic/eliminationProcessor';
 const { ccclass, property } = _decorator;
 
 @ccclass('gameViewCmpt')
@@ -68,6 +71,9 @@ export class GameViewCmpt extends BaseViewCmpt {
     private flyingItemPromises: Promise<void>[] = [];
     /** 防止无限递归 */
     private checkAgainCount: number = 0;
+    /** 新的匹配引擎系统 */
+    private matchEngine: MatchEngine = null;
+    private eliminationProcessor: EliminationProcessor = null;
     onLoad() {
         // 移除动态绑定，改为直接定义onClick方法
         // 确保关键数组被正确初始化
@@ -148,6 +154,10 @@ export class GameViewCmpt extends BaseViewCmpt {
             this.rocketPre = await ResLoadHelper.loadPieces(ViewName.Pieces.rocket);
         }
         await this.initLayout();
+        
+        // 初始化新的匹配引擎系统
+        await this.initNewMatchSystem();
+        
         this.startHintTimer();
         
         // 确保体力显示是最新的
@@ -1039,7 +1049,7 @@ export class GameViewCmpt extends BaseViewCmpt {
                 let twoOriginalType = two.type;
                 
                 // 先检查三消组合，确保能正常生成特效元素
-                let bool = await this.startCheckThree((bl) => {
+                let bool = await this.newMatchDetection((bl) => {
                     if (bl) {
                         this.stepCount--;
                         this.updateStep();
@@ -1121,7 +1131,7 @@ export class GameViewCmpt extends BaseViewCmpt {
             return;
         }
 
-        let bool = await this.startCheckThree();
+        let bool = await this.newMatchDetection();
         if (bool) {
             this.checkAgain(isResult);
         }
@@ -2036,6 +2046,12 @@ export class GameViewCmpt extends BaseViewCmpt {
         this.curScore += score;
         this.updateScorePercent();
     }
+
+    /** 新的分数添加方法 - 直接添加分数值 */
+    addScoreByValue(score: number) {
+        this.curScore += score;
+        this.updateScorePercent();
+    }
     /** 飞舞动画 */
     async flyItem(type: number, pos: Vec3) {
         const promise = new Promise<void>(resolve => {
@@ -2618,7 +2634,7 @@ export class GameViewCmpt extends BaseViewCmpt {
             await this.shuffleBoard();
 
             // After shuffling, check again. If still no moves, or if the shuffle created a match, reshuffle.
-            while (this.findHintPair().length === 0 || await this.startCheckThree()) {
+            while (this.findHintPair().length === 0 || await this.newMatchDetection()) {
                 console.log("Reshuffling...");
                 await this.shuffleBoard();
             }
@@ -2629,7 +2645,16 @@ export class GameViewCmpt extends BaseViewCmpt {
 
     /** 检查两个元素交换后是否能形成三消 */
     canFormMatch(gc1: gridCmpt, gc2: gridCmpt): boolean {
-        // 直接模拟交换，用最简单直接的方式
+        // 优先使用新的匹配引擎
+        if (this.matchEngine) {
+            return this.matchEngine.canFormMatchAfterSwap(
+                this.blockArr,
+                { row: gc1.v, col: gc1.h },
+                { row: gc2.v, col: gc2.h }
+            );
+        }
+        
+        // 回退到原有算法
         return this.simulateSwapAndCheck(gc1, gc2);
     }
 
@@ -2916,6 +2941,63 @@ export class GameViewCmpt extends BaseViewCmpt {
         } else {
             console.log('游戏页面未找到体力显示节点，可能路径不正确');
         }
+    }
+
+    /**
+     * 初始化新的匹配引擎系统
+     */
+    private async initNewMatchSystem(): Promise<void> {
+        console.log('[GameViewCmpt] 初始化新匹配引擎系统');
+        
+        // 初始化匹配引擎
+        this.matchEngine = MatchEngine.instance;
+        await this.matchEngine.init();
+        this.matchEngine.setBoardSize(this.H, this.V);
+        
+        // 初始化消除处理器
+        this.eliminationProcessor = EliminationProcessor.instance;
+        await this.eliminationProcessor.init();
+        this.eliminationProcessor.setup(this.effNode, this.particlePre);
+        
+        console.log('[GameViewCmpt] 新匹配引擎系统初始化完成');
+    }
+
+    /**
+     * 新的匹配检测方法 - 替换原有的startCheckThree方法
+     */
+    private async newMatchDetection(callback?: Function): Promise<boolean> {
+        if (!this.matchEngine || !this.eliminationProcessor) {
+            console.warn('[GameViewCmpt] 匹配引擎未初始化，使用原有算法');
+            return false;
+        }
+        
+        // 使用新的匹配引擎检测匹配
+        const matchResult = this.matchEngine.findMatches(this.blockArr);
+        
+        if (matchResult.hasMatches) {
+            console.log(`[GameViewCmpt] 检测到 ${matchResult.matches.length} 个匹配组`);
+            
+            // 调用回调函数
+            if (callback) {
+                callback(true);
+            }
+            
+            // 处理匹配结果
+            await this.eliminationProcessor.processMatchResult(
+                matchResult,
+                this.blockArr,
+                (score: number) => {
+                    this.addScoreByValue(score);
+                }
+            );
+            
+            return true;
+        }
+        
+        if (callback) {
+            callback(false);
+        }
+        return false;
     }
 
     onDestroy() {
