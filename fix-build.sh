@@ -14,10 +14,33 @@ if [ -d "build/wechatgame/assets/start-scene" ]; then
     
     # 移动start-scene到分包
     mv build/wechatgame/assets/start-scene build/wechatgame/subpackages/start-scene-resources/
-    echo "   ✅ start-scene已移动到分包"
+    
+    # 添加分包配置到game.json
+    if ! grep -q "start-scene-resources" build/wechatgame/game.json; then
+        echo "   添加start-scene-resources分包配置..."
+        # 在最后一个分包后添加新的分包配置
+        sed -i '' 's/        }/        },\
+        {\
+            "name": "start-scene-resources",\
+            "root": "subpackages\/start-scene-resources\/"\
+        }/2' build/wechatgame/game.json
+    fi
+    
+    # 修复settings文件中的subpackages配置
+    settings_file="build/wechatgame/src/settings.*.json"
+    if ls $settings_file 1> /dev/null 2>&1; then
+        settings=$(ls $settings_file | head -1)
+        if ! grep -q '"start-scene-resources"' "$settings"; then
+            echo "   修复settings文件中的subpackages配置..."
+            sed -i '' 's/"audio-resources"]/"audio-resources","start-scene-resources"]/' "$settings"
+        fi
+    fi
+    
+    echo "   ✅ start-scene已移动到分包并添加配置"
 else
     echo "   ✅ start-scene已在分包中"
 fi
+
 
 # 2. 修复MD5 hash文件名问题 - 创建软链接
 echo "🔗 修复MD5 hash文件名问题..."
@@ -36,16 +59,16 @@ done
 # 3. 修复适配器文件
 echo "⚙️ 修复适配器文件..."
 cd build/wechatgame
-if [ -f "web-adapter.*.js" ] && [ ! -f "web-adapter.js" ]; then
+if ls web-adapter.*.js 1> /dev/null 2>&1 && [ ! -f "web-adapter.js" ]; then
     web_adapter=$(ls web-adapter.*.js | head -1)
-    ln -sf "$web_adapter" web-adapter.js
-    echo "   ✅ 创建web-adapter.js链接"
+    cp "$web_adapter" web-adapter.js
+    echo "   ✅ 创建web-adapter.js文件"
 fi
 
-if [ -f "engine-adapter.*.js" ] && [ ! -f "engine-adapter.js" ]; then
+if ls engine-adapter.*.js 1> /dev/null 2>&1 && [ ! -f "engine-adapter.js" ]; then
     engine_adapter=$(ls engine-adapter.*.js | head -1)
-    ln -sf "$engine_adapter" engine-adapter.js
-    echo "   ✅ 创建engine-adapter.js链接"
+    cp "$engine_adapter" engine-adapter.js
+    echo "   ✅ 创建engine-adapter.js文件"
 fi
 
 cd ../..
