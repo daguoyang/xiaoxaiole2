@@ -71,6 +71,11 @@ export namespace EventName {
         UpdateUserIcon = "UpdateUserIcon",
         /** 体力更新 */
         HeartUpdate = "HeartUpdate",
+        
+        /** 新的游戏状态管理事件 */
+        StateChanged = "StateChanged",
+        /** 连击结束事件 */
+        ComboEnd = "ComboEnd",
     }
 
     export enum UI {

@@ -18,6 +18,8 @@ import { rocketCmpt } from './item/rocketCmpt';
 // 新的匹配引擎系统
 import { MatchEngine } from '../logic/matchEngine';
 import { EliminationProcessor } from '../logic/eliminationProcessor';
+import { GameStateManager, GameState } from '../logic/gameStateManager';
+import { ChainReactionHandler } from '../logic/chainReactionHandler';
 const { ccclass, property } = _decorator;
 
 @ccclass('gameViewCmpt')
@@ -74,6 +76,8 @@ export class GameViewCmpt extends BaseViewCmpt {
     /** 新的匹配引擎系统 */
     private matchEngine: MatchEngine = null;
     private eliminationProcessor: EliminationProcessor = null;
+    private gameStateManager: GameStateManager = null;
+    private chainReactionHandler: ChainReactionHandler = null;
     onLoad() {
         // 移除动态绑定，改为直接定义onClick方法
         // 确保关键数组被正确初始化
@@ -1115,10 +1119,47 @@ export class GameViewCmpt extends BaseViewCmpt {
         }
         return false;
     }
-    /** 反复检查 */
-    async checkAgain(isResult: boolean = false) {
+    /** 新的连锁反应检查方法 - 替换原有的checkAgain递归 */
+    async newChainReactionCheck(isFromPlayerAction: boolean = false): Promise<void> {
+        if (!this.chainReactionHandler) {
+            console.warn('[GameViewCmpt] 连锁反应处理器未初始化，使用原有逻辑');
+            return this.legacyCheckAgain();
+        }
+
+        console.log(`[GameViewCmpt] 开始新连锁反应检查 (玩家操作: ${isFromPlayerAction})`);
+        
+        // 设置游戏状态
+        if (this.gameStateManager) {
+            this.gameStateManager.setState(GameState.PROCESSING);
+        }
+        
+        try {
+            // 启动连锁反应处理
+            const result = await this.chainReactionHandler.startChainReaction(this.blockArr, isFromPlayerAction);
+            
+            console.log(`[GameViewCmpt] 连锁反应完成 - 匹配: ${result.totalMatches}, 分数: ${result.totalScore}, 连击: ${result.maxCombo}`);
+            
+            // 重置UI状态
+            this.resetSelected();
+            this.isStartChange = false;
+            this.isStartTouch = false;
+            this.checkAgainCount = 0;
+            this.resetHintTimer();
+            
+            // 检查是否需要洗牌
+            this.checkBoardAndShuffle();
+            
+        } catch (error) {
+            console.error('[GameViewCmpt] 连锁反应处理出错:', error);
+            // 出错时回退到原有逻辑
+            this.legacyCheckAgain();
+        }
+    }
+
+    /** 保留原有checkAgain逻辑作为回退方案 */
+    private async legacyCheckAgain(isResult: boolean = false): Promise<void> {
         this.checkAgainCount++;
-        console.log('checkAgain called, count:', this.checkAgainCount);
+        console.log('Legacy checkAgain called, count:', this.checkAgainCount);
 
         // 防止无限递归，最多递归10次
         if (this.checkAgainCount > 10) {
@@ -1133,7 +1174,7 @@ export class GameViewCmpt extends BaseViewCmpt {
 
         let bool = await this.newMatchDetection();
         if (bool) {
-            this.checkAgain(isResult);
+            this.legacyCheckAgain(isResult);
         }
         else {
             console.log('checkAgain completed, waiting for animations...');
@@ -1155,6 +1196,11 @@ export class GameViewCmpt extends BaseViewCmpt {
             // Then, check if the board needs shuffling for the next move.
             this.checkBoardAndShuffle();
         }
+    }
+
+    /** 兼容性方法 - 保持原有接口 */
+    async checkAgain(isResult: boolean = false): Promise<void> {
+        await this.newChainReactionCheck(false);
     }
     /**
      * 开始检测是否有满足消除条件的存在
@@ -2958,6 +3004,25 @@ export class GameViewCmpt extends BaseViewCmpt {
         this.eliminationProcessor = EliminationProcessor.instance;
         await this.eliminationProcessor.init();
         this.eliminationProcessor.setup(this.effNode, this.particlePre);
+        
+        // 初始化游戏状态管理器
+        this.gameStateManager = GameStateManager.instance;
+        await this.gameStateManager.init();
+        
+        // 初始化连锁反应处理器
+        this.chainReactionHandler = ChainReactionHandler.instance;
+        await this.chainReactionHandler.init();
+        this.chainReactionHandler.setEngines(this.matchEngine, this.eliminationProcessor);
+        
+        // 设置连锁反应回调
+        this.chainReactionHandler.setCallbacks({
+            onScoreUpdate: (score: number) => this.addScoreByValue(score),
+            onMoveDown: () => this.checkMoveDown(),
+            onResultCheck: () => this.checkResult(),
+            onAnimationComplete: () => Promise.all(this.flyingItemPromises).then(() => {
+                this.flyingItemPromises = [];
+            })
+        });
         
         console.log('[GameViewCmpt] 新匹配引擎系统初始化完成');
     }
